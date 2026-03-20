@@ -1,7 +1,9 @@
 import pygame as pg
 import math
 import sys
+import os
 from objects_02 import *
+from formuls import *
 
 pg.init()
 
@@ -14,7 +16,7 @@ GREEN = (0,255,0)
 BLUE = (0,0,255)
 
 screen = pg.display.set_mode((WIDTH, HEIGHT))
-pg.display.set_caption("Phisical Engive v02")
+pg.display.set_caption("Physical Engine v02")
 
 clock = pg.time.Clock()
 FPS = 60
@@ -70,33 +72,51 @@ def pushout(a, b):
         elif not b.is_static:
             b.y += dir * overlay_y
             b.dy = -v2_y * friction
-        
 
-sq1=AABB(x=200, 
-         y=300, 
-         width=20, 
-         height=20,
-         mass=1,
-         dx=160,
-         dy=0.0, 
-         color=(0,0,255))
+def load_texture(path):
+    try:
+        if os.path.exists(path):
+            return pg.image.load(path).convert_alpha()
+        else:
+            print(f"Warning: Texture not found at {path}")
+            placeholder = pg.Surface((32, 32))
+            placeholder.fill((255, 0, 255))
+            return placeholder
+    except pg.error as e:
+        print(f"Error loading texture {path}: {e}")
+        placeholder = pg.Surface((32, 32))
+        placeholder.fill((255, 0, 255))
+        return placeholder
 
-sq2=AABB(x=400, 
-         y=300, 
-         width=40, 
-         height=40,
-         mass=2,
-         dx=-80,
-         dy=0.0,
-         color=(0,255,0))
-
-floor=AABB(x=0,
-           y=600,
-           width=1000,
-           height=60)
+floor = AABB(x=0,
+             y=HEIGHT - 60,
+             width=WIDTH,
+             height=60,
+             mass=0,
+             dx=0,
+             dy=0,
+             color=GREEN)
 floor.is_static = True
 
-objs = [sq1, sq2, floor]
+objs = [floor]
+
+script_dir = os.path.dirname(os.path.abspath(__file__))
+textures_dir = os.path.join(script_dir, "textures")
+
+category_1_nonactive = load_texture(os.path.join(textures_dir, "category_1_nonactive.png"))
+category_2_nonactive = load_texture(os.path.join(textures_dir, "category_2_nonactive.png"))
+category_3_nonactive = load_texture(os.path.join(textures_dir, "category_3_nonactive.png"))
+category_1_active = load_texture(os.path.join(textures_dir, "category_1_active.png"))
+category_2_active = load_texture(os.path.join(textures_dir, "category_2_active.png"))
+category_3_active = load_texture(os.path.join(textures_dir, "category_3_active.png"))
+
+textures = {
+    1: {"active": category_1_active, "nonactive": category_1_nonactive},
+    2: {"active": category_2_active, "nonactive": category_2_nonactive},
+    3: {"active": category_3_active, "nonactive": category_3_nonactive}
+}
+
+ui = [(category_1_nonactive, (0, 0)), (category_2_nonactive, (32, 0)), (category_3_nonactive, (64, 0))]
 
 def update_scene(objects, dt):
     for obj in objects:
@@ -106,23 +126,105 @@ def update_scene(objects, dt):
         for j in range(i + 1, len(objects)):
             if intersection(objects[i], objects[j]):
                 pushout(objects[i], objects[j])
-
+    
     for obj in objects:
         obj.draw(screen)
 
+chosen_category = 0
+x0, y0, x1, y1 = None, None, None, None
+drawing = False
+
 running = True
 while running:
-    dt=clock.tick(FPS)/1000
+    dt = clock.tick(FPS) / 1000.0
+    
     for event in pg.event.get():
         if event.type == pg.QUIT:
             running = False
+        
+        if event.type == pg.KEYDOWN:
+            if event.key == pg.K_1:
+                chosen_category = 1
+                ui[0] = (textures[1]["active"], (0, 0))
+                ui[1] = (textures[2]["nonactive"], (32, 0))
+                ui[2] = (textures[3]["nonactive"], (64, 0))
+            elif event.key == pg.K_2:
+                chosen_category = 2
+                ui[0] = (textures[1]["nonactive"], (0, 0))
+                ui[1] = (textures[2]["active"], (32, 0))
+                ui[2] = (textures[3]["nonactive"], (64, 0))
+            elif event.key == pg.K_3:
+                chosen_category = 3
+                ui[0] = (textures[1]["nonactive"], (0, 0))
+                ui[1] = (textures[2]["nonactive"], (32, 0))
+                ui[2] = (textures[3]["active"], (64, 0))
+        
+        if event.type == pg.MOUSEBUTTONDOWN:
+            if event.button == 1:
+                x0, y0 = event.pos
+                drawing = True
+        
+        if event.type == pg.MOUSEBUTTONUP:
+            if event.button == 1 and drawing:
+                x1, y1 = event.pos
+                
+                if x0 is not None and y0 is not None:
+                    radius = distance2D(x0, y0, x1, y1)
+                    
+                    if chosen_category == 1:
+                        try:
+                            new_obj = AABB(x=x0+abs(x0-x1)/2,
+                                           y=y0+abs(y0-y1)/2,
+                                           width=abs(x1 - x0)/2,
+                                           height=abs(y1 - y0)/2,
+                                           mass=max(1, radius / 100),
+                                           dx=0.1,
+                                           dy=0.1,
+                                           color=WHITE)
+                            objs.append(new_obj)
+                        except Exception as e:
+                            print(f"Error creating object: {e}")
+                    
+                    elif chosen_category == 2:
+                        try:
+                            new_obj = Circle(x=x0,
+                                             y=y0,
+                                             radius=radius,
+                                             mass=max(1, radius / 100),
+                                             dx=0.1,
+                                             dy=0.1,
+                                             color=WHITE)
+                            objs.append(new_obj)
+                            pass
+                        except Exception as e:
+                            print(f"Error creating circle: {e}")
+                
+                x0, y0, x1, y1 = None, None, None, None
+                drawing = False
     
     screen.fill(BLACK)
-
+    
+    if drawing and x0 is not None and y0 is not None:
+        mouse_x, mouse_y = pg.mouse.get_pos()
+        
+        if chosen_category == 1:
+            rect = pg.Rect(min(x0, mouse_x), min(y0, mouse_y), 
+                          abs(mouse_x - x0), abs(mouse_y - y0))
+            pg.draw.rect(screen, WHITE, rect, 2)
+        elif chosen_category == 2:
+            radius = distance2D(x0, y0, mouse_x, mouse_y)
+            pg.draw.circle(screen, WHITE, (x0, y0), int(radius), 2)
+    
     update_scene(objs, dt)
-
+    
+    for image, pos in ui:
+        screen.blit(image, pos)
+    
+    font = pg.font.Font(None, 24)
+    text = font.render(f"Objects: {len(objs)}", True, WHITE)
+    screen.blit(text, (10, HEIGHT - 30))
+    
     pg.display.flip()
-    clock.tick(FPS)
 
 pg.quit()
 sys.exit()
