@@ -198,6 +198,20 @@ while running:
                             pass
                         except Exception as e:
                             print(f"Error creating circle: {e}")
+
+                    elif chosen_category == 3:
+                        try:
+                            new_obj = Triange(x=x0+abs(x0-x1)/2,
+                                           y=y0+abs(y0-y1)/2,
+                                           width=abs(x1 - x0)/2,
+                                           height=abs(y1 - y0)/2,
+                                           mass=max(1, radius / 100),
+                                           dx=0.1,
+                                           dy=0.1,
+                                           color=WHITE)
+                            objs.append(new_obj)
+                        except Exception as e:
+                            print(f"Error creating object: {e}")
                 
                 x0, y0, x1, y1 = None, None, None, None
                 drawing = False
